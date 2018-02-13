@@ -1,0 +1,285 @@
+<html>
+    <head>
+        <title>Paginate</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css">
+		<script defer src="https://use.fontawesome.com/releases/v5.0.0/js/all.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    </head>
+    <body>
+        <section class="section">
+            <div class="container">
+                <div class="notification">
+                    <p class="title">Pagination</p>
+                </div>
+                <section>
+                    <div class="columns">
+						<div class="column">
+							<div class="field has-addons">
+								<div class="control">
+									<a class="button is-static">Rows Per Page</a>
+								</div>
+								<div class="control is-expanded">
+									<input class="input" type="number" id="rows_per_page">
+								</div>
+							</div>
+						</div>
+						<div class="column">
+							<div class="field is-grouped">
+                                <div class="control">
+                                    <button class="button is-info" onclick="loadPage()">Search</button>
+                                </div>
+                                <div class="control">
+                                    <button class="button" onclick="clearAll()">Clear All</button>
+                                </div>
+                            </div>
+						</div>
+                    </div>
+                </section>
+                <section class="section is-hidden" id="result">
+                    <div class="columns">
+                        <div class="column">
+                            <div class="field">
+                                <div class="field-body">
+                                    <div class="field is-grouped is-grouped-right">
+                                        <div class="control">
+                                            <p class="field-label is-normal" id="counter"></p>
+                                        </div>
+                                        <div class="control">
+                                            <button class="button" onclick="previousPage()" title="Previous Page" id="previous">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </button>
+                                            <button class="button" onclick="nextPage()" title="Next Page" id="next">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="columns">
+                        <div class="column">
+                            <div id="records"></div>
+                        </div>
+                    </div>   
+                </section>
+            </div>
+        </section>
+    </body>
+    <script>
+        
+        // Declaring global variables
+        var total_no_of_rows, total_no_of_pages, current_page_no, rows_per_page;
+        
+        // Reseting all the global variables
+        function resetVariables()
+        {
+            current_page_no = 1;
+            total_no_of_rows = 0;
+            total_no_of_pages = 0;
+            rows_per_page = 0;
+
+            // Disabling Previous Page button
+            buttonState("previous", true, "none");
+
+            // Enabling Next Page button
+            buttonState("next", true, "none");
+        }
+        
+        // Function of CLEAR button
+        function clearAll()
+        {
+            resetVariables();
+
+            // Hiding the basic UI of the result
+            document.getElementById("result").className = "section is-hidden";
+
+            // Clearing rows_per_page input field
+            document.getElementById("rows_per_page").value = "";
+        }
+        
+        // Function of SEARCH Button
+        function loadPage()
+        {
+            resetVariables();
+
+            // Initialising rows_per_page from user input
+            rows_per_page = document.getElementById("rows_per_page").value;
+            
+            if(rows_per_page == "" || rows_per_page == 0) // rows_per_page is empty or not
+            {
+                window.alert("Number of rows per page not entered.");
+                document.getElementById("rows_per_page").value = "";
+            }
+            else if(isNaN(rows_per_page)) // Checking if the inputed rows_per_page is a number or not
+            {
+                // Alert message
+                window.alert("The entered value isn't a number");
+
+                document.getElementById("rows_per_page").value = "";
+            }
+            else
+            { 
+                // AJAX call to fetch total_no_of_rows in the database
+                $.ajax({
+                    url: "php/getCount.php",
+                    type: "POST",
+                    cache: false,
+                    success: getCountResponse // To process the AJAX response outside the AJAX call
+                });
+            }
+        }
+        
+        // AJAX Success function to process the response outside the AJAX call
+        function getCountResponse(response) 
+        {
+            // Initialising total_no_of_rows from AJAX response
+            total_no_of_rows = response;
+
+            // Enabling the basic UI of the result
+            document.getElementById("result").className = "section";
+
+            if(total_no_of_rows > 0) // Load records only if records exists
+            {
+                // Calculating total_no_of_pages for pagination
+                total_no_of_pages = Math.ceil(response / rows_per_page);
+                
+                if(rows_per_page < total_no_of_rows)
+                {
+                    // Defining the selected records out of total records
+                    counterPrompt();
+
+                    // Fetch MYSQL data based on rows_per_page and current_page_no
+                    getRecords(current_page_no);
+
+                    // Disabling Previous Page button as this is the first page
+                    buttonState("previous", true, "none");
+
+                    // Enabling Next Page button
+                    buttonState("next", false, "auto");
+                }
+                else if(rows_per_page >= total_no_of_rows) // rows_per_page is equal to or exceeds total_no_of_rows
+                {
+                    counterPrompt();
+
+                    getRecords(current_page_no);
+
+                    // No pagination function exists
+                    buttonState("previous", true, "none");
+                    buttonState("next", true, "none");
+                }
+            }
+            else // No records found
+            {
+                document.getElementById("records").innerHTML = "No records found."
+                resetVariables();
+            }
+        }
+        
+        // Function of PREVIOUS PAGE button
+        function previousPage()
+        {
+            // Decreasing the current_page_no counter
+            current_page_no -= 1;
+
+            counterPrompt();
+            
+            // Disabling Previous Page button if the new page is the first page
+            if(current_page_no == 1)
+                buttonState("previous", true, "none");
+
+            getRecords(current_page_no);
+
+            // Enabling Next Page button as this is not the last page
+            buttonState("next", false, "auto");
+        }
+        
+        // Function of NEXT PAGE button
+        function nextPage()
+        {
+            // Increasing the current_page_no counter
+            current_page_no += 1;
+
+            counterPrompt();
+            
+            // Disable Next Page button if current_page_no == total_no_of_pages
+            if(current_page_no == total_no_of_pages)
+               buttonState("next", true, "none");
+            
+            getRecords(current_page_no);
+
+            // Enabling Previous Page button as this is not the first page
+            buttonState("previous", false, "auto");
+        }
+        
+        function getRecords(current_page_no)
+        {   
+            $.ajax ({
+                url: "php/getRecords.php",
+                type: "POST", // Send input data as a POST message
+                data: {"current_page_no": current_page_no, "rows_per_page": rows_per_page}, // Passing multiple input paramters
+                cache: false,
+                success: function(response) {
+                    $("#records").html(response); // MYSQL Records are echoed
+                }
+            });
+        }
+        
+        function buttonState(id, status, click)
+        {
+            // Disable button
+            document.getElementById(id).disabled = status;
+
+            // Disable onclick event
+            document.getElementById(id).style.pointerEvents = click;
+            
+            // Change colour of button text at disabled state
+            if(status == true)
+                document.getElementById(id).style.color = "#cecece";
+            else
+                document.getElementById(id).style.color = "black";
+        }
+        
+        function counterPrompt()
+        {
+            // Count of First record within the current page
+            var start = 0;
+
+            // Counter label format
+            var counter = 0;
+
+            // Count of Last record within the current page
+            var end = current_page_no * rows_per_page;
+
+            if(current_page_no == 1 && total_no_of_rows > end) // First page && rows_per_page is not equal to or not exceeds total_no_of_rows
+            {
+                start = 1;
+
+                counter = start + "-" + end + " of " + total_no_of_rows;
+                
+                // Print the selected records out of total records within the counter label
+                document.getElementById("counter").innerHTML = counter;
+            }
+            else if(current_page_no == 1 && total_no_of_rows < end) // First page && rows_per_page is equal to or exceeds total_no_of_rows
+            {
+                start = 1;
+                counter = start + "-" + total_no_of_rows + " of " + total_no_of_rows;
+                document.getElementById("counter").innerHTML = counter;
+            }
+            else if(current_page_no < total_no_of_pages) // For any page except the first and last page
+            {
+                start = rows_per_page * (current_page_no - 1) + 1;
+                counter = start + "-" + end + " of " + total_no_of_rows;
+                document.getElementById("counter").innerHTML = counter;
+            }
+            else if(current_page_no == total_no_of_pages) // Last page or only one page available
+            {
+                start = rows_per_page * (current_page_no - 1) + 1;
+                counter = total_no_of_rows + " of " + total_no_of_rows;
+                document.getElementById("counter").innerHTML = counter;
+            }
+        }
+        
+    </script>
+</html>
