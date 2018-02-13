@@ -1,5 +1,6 @@
 # Pagination Gmail Style
-I have always been troubled in creating a proper pagination action. Finally got it right. I believe my code would be of use to someone who is experiencing the same.
+- A simple and clean pagination action using PHP
+- The UI created using Bulma CSS Framework
 
 # Getting Started
 1. Start a local server (can use either docker, XAMPP or Apache).
